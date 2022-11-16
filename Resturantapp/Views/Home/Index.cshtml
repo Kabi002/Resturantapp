@@ -1,0 +1,937 @@
+﻿@model Tuple<IEnumerable<SelectListItem>, IEnumerable<SelectListItem>, IEnumerable<SelectListItem>>
+@{
+    ViewBag.Title = "Index";
+}
+<script src="~/Scripts/jquery-3.0.0.min.js"></script>
+<script type="text/javascript">
+    $(document).ready(function () {
+        $("#Item").val(0);
+
+        $("#Item").change(function () {
+            var itemId = $("#Item").val();
+
+            GetItemUnitPrice(itemId);
+
+        });
+        $("input[type=text").change(function () {
+            CalculateSubTotal();
+
+        });
+
+        $("input[type=text").keyup(function () {
+            CalculateBalance();
+
+        });
+
+
+        $("#btnAddToList").click(function () {
+            AddToTheItemList();
+        });
+
+        $("#btnPayment").click(function () {
+            FinalPayment();
+        });
+        $("#btnReset").click(function () { ResetItems(); ResetItemsDetails(); });
+
+
+    }); 
+
+    function FinalPayment() {
+        var objOrderViewModel = {};
+        var ListOfOrderDetailViewModel = new Array();
+
+        objOrderViewModel.PaymentTypeId = $("#PaymentType").val();
+        objOrderViewModel.CustomerId = $("#Customer").val();
+        objOrderViewModel.FinalTotal = $("#txtFinalTotal").val();
+
+        $("#tblRestaurantItemList").find("tr:gt(0)").each(function () {
+            var OrderDetailViewModel = {};
+            OrderDetailViewModel.Total = parseFloat($(this).find("td:eq(5)").text());
+            OrderDetailViewModel.ItemId = parseFloat($(this).find("td:eq(0)").text());
+            OrderDetailViewModel.UnitPrice = parseFloat($(this).find("td:eq(2)").text());
+            OrderDetailViewModel.Quantity = parseFloat($(this).find("td:eq(3)").text());
+            OrderDetailViewModel.Discount = parseFloat($(this).find("td:eq(4)").text());
+            ListOfOrderDetailViewModel.push(OrderDetailViewModel);
+
+
+        });
+
+        objOrderViewModel.ListOfOrderDetailViewModel = ListOfOrderDetailViewModel
+
+        $.ajax({
+            async: true,
+            type: 'POST',
+            dataType: 'JSON',
+            contentType: 'application/json; charset=utf-8',
+            data: JSON.stringify(objOrderViewModel),
+            url: '/Home/Index',
+           
+            success: function (data) {
+                alert(data);
+               // $("#txtUnitPrice").val(parseFloat(data).toFixed(2));
+            },
+            error: function () {
+                alert("There is some problem to adding the data.");
+            }
+        });
+        ResetItems();
+        ResetItemsDetails();
+
+    }
+
+    function CalculateBalance() {
+        var FinalAmount = $("#txtPaymentTotal").val();
+        var PaymentAmount = $("#txtPaymentAmount").val();
+        var ReturnAmount = $("#txtReturnTotal").val();
+        var BalanceAmount = parseFloat(FinalAmount) - parseFloat(PaymentAmount) + parseFloat(ReturnAmount);
+        $("#txtBalance").val(parseFloat(BalanceAmount).toFixed(2));
+
+        if (parseFloat(BalanceAmount) == 0) {
+            $("#btnPayment").removeAttr("disabled");
+        }
+        else {
+            $("#btnPayment").attr("disabled", "disabled")
+        }
+    }
+
+    //function RemoveItem(itemId) {
+    //    var finalPrice = $("#txtFinalTotal");
+    //    var finalPriceVal = $("#txtFinalTotal").val();
+    //    var itemPrice = $(itemId).closest("tr").find("input[name='total']").val();
+
+    //    finalPriceVal -= itemPrice;
+
+    //    finalPrice.val(finalPriceVal)
+    //    $(itemId).closest('tr').remove();
+
+    //}
+    function ResetItemsDetails() {
+        $("#divPayment").modal('hide');
+        $("#tblRestaurantItemList").find("tr:gt(0)").each(function () {
+            $(this).remove();
+        });
+
+        $("#txtFinalTotal").val(parseFloat(0.00).toFixed(2));
+        $("#txtPaymentTotal").val(parseFloat(0.00).toFixed(2));
+        $("#txtBalance").val(parseFloat(0.00).toFixed(2));
+        $("#PaymentType").val(0); $("#Customer").val(0);
+
+    }
+    function EnableDisableCheckOut() {
+        $("#btnCheckOut").prop('disabled', true);
+        if ($('#tblRestaurantItemList tr').length > 1)
+            $("#btnCheckOut").prop('disabled', false);
+    }
+    function ResetItems() {
+        $("#txtQuantity").val('1.00');
+        $("#txtDiscount").val('0.00');
+        $("#Item").val(1);
+        $("#txtTotal").val('0.00');
+        $("#btnPayment").prop('disabled', true);
+        $("#btnCheckOut").prop('disabled', true);
+    }
+
+    function RemoveItem(itemId) {
+
+        $("#txtFinalTotal").val("0.00");
+
+        var FinalTotal = 0.00;
+        $("#tblRestaurantItemList").find("tr:gt(0)").each(function () {
+            //var Total = parseFloat($(this).find("td:eq(5)").text());
+            var Total = parseFloat($(this).find("input[name='total']").val());
+            //console.log(Total);
+            FinalTotal += parseFloat(Total);
+
+            $(itemId).closest('tr').remove();
+            EnableDisableCheckOut();
+        });
+            }
+
+    function AddToTheItemList() {
+
+        var tblItemList = $("#tblRestaurantItemList");
+        var UnitPrice = $("#txtUnitPrice").val();
+        var Quantity = $("#txtQuantity").val();
+        var Discount = $("#txtDiscount").val();
+
+        var ItemId = $("#Item").val();
+        var ItemName = $("#Item option:selected").text();
+
+        var Total = (UnitPrice * Quantity) - Discount;
+
+
+        //  var Total = $("#txtTotal").val();
+        var ItemList = "<tr><td hidden>" +
+            ItemId +
+            "</td><td>" +
+            ItemName +
+            "</td><td>" +
+            parseFloat(UnitPrice).toFixed(2) +
+            "</td><td>" +
+            parseFloat(Quantity).toFixed(2) +
+            "</td><td>" +
+            parseFloat(Discount).toFixed(2) +
+            "</td><td>" +
+            parseFloat(Total).toFixed(2) +
+
+            "</td><td> <input type='button' value='Remove' name='remove' class='btn btn-danger' onclick='RemoveItem(this)'/> </tr ></tr>";
+
+        tblItemList.append(ItemList);
+        FinalItemTotal();
+        ResetItem();
+        EnableDisableCheckOut();
+    }
+
+
+    function FinalItemTotal() {
+        $("#txtFinalTotal").val("0.00");
+        var FinalTotal = 0.00;
+        $("#tblRestaurantItemList").find("tr:gt(0)").each(function () {
+            var Total = parseFloat($(this).find("td:eq(5)").text());
+            FinalTotal += Total;
+            //  alert(FinalTotal);
+
+        });
+
+        $("#txtFinalTotal").val(parseFloat(FinalTotal).toFixed(2));
+        $("#txtPaymentTotal").val(parseFloat(FinalTotal).toFixed(2));
+        $("#txtBalance").val(parseFloat(FinalTotal).toFixed(2));
+
+    }
+
+    function ResetItem() {
+        $("#txtUnitPrice").val('');
+        $("#txtQuantity").val('');
+        $("#txtDiscount").val('0.00');
+        $("#Item").val(0);
+        $("#txtTotal").val("");
+
+    }
+
+    function loadItem() {
+        var itemId = $("#Item").val();
+        GetItemUnitPrice(itemId);
+    }
+
+
+    function CalculateSubTotal() {
+        var UnitPrice = $("#txtUnitPrice").val();
+        var Quantity = $("#txtQuantity").val();
+        var Discount = $("#txtDiscount").val();
+
+        var Total = (UnitPrice * Quantity) - Discount;
+
+        $("#txtTotal").val(parseFloat(Total).toFixed(2));
+    }
+
+    function GetItemUnitPrice(itemId) {
+       /* alert(itemId);*/
+        $.ajax({
+            async: true,
+            type: 'GET',
+            dataType: 'JSON',
+            contentType: 'application/json; charset=utf-8',
+            data: { itemId: itemId },
+            url: '/home/getItemUnitPrice',
+            data: { itemId: itemId },
+            success: function (data) {
+                $("#txtUnitPrice").val(parseFloat(data).toFixed(2));
+            },
+            error: function () {
+                alert("There is some problem to get the unit price.");
+            }
+        });
+    }
+
+</script>
+<style>
+    body {
+        /*        background-image: url(data:image/jpeg;base64,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)
+*/
+/*        background-image: url(data:image/jpeg;base64,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);
+*/    }
+    .row {
+        display: flex;
+        justify-content: space-evenly;
+    }
+
+    .modal {
+        text-align: center;
+        padding: 0 !important;
+    }
+
+        .modal:before {
+            content: '';
+            display: inline-block;
+            height: 100%;
+            vertical-align: middle;
+            margin-right: -4px;
+        }
+
+    .modal-dialog {
+        display: inline-block;
+        text-align: left;
+        vertical-align: middle;
+    }
+
+    /*.form-group {
+        display: flex;
+        justify-content: space-evenly;
+    }
+*/
+    .modal-body {
+        display: flex;
+        justify-content: space-evenly;
+    }
+
+    fieldset {
+        border: 1px solid #ddd !important;
+        margin: 0;
+        min-width: 0;
+        padding: 10px;
+        position: relative;
+        border-radius: 4px;
+        background-color: #a6a6a6;
+        padding-left: 10px !important;
+    }
+
+    legand {
+        font-size: 14px;
+        font-weight: bold;
+        margin-bottom: 0px;
+        width: 35%;
+        border-radius: 4px;
+        border: 1px solid #ddd;
+        padding: 5px 5px 5px 10px;
+        background-color: #ffffff;
+      
+    }
+    .lenged{
+        font-style:italic;
+        background-color:white;
+        color:red;
+       
+    }
+
+    .cls {
+        background-color: lightcyan;
+        border: none;
+        color: black;
+        padding: 10px 20px;
+        text-align: center;
+        position: relative;
+        text-decoration: none;
+        display: inline-block;
+        margin: 4px 2px;
+        cursor: pointer;
+        border-radius: 16px;
+    }
+    .container1{
+
+        padding-top:5px;
+        padding-left:30px;
+        padding-right:30px;
+       padding-bottom:30px;
+    }
+    .head{
+        text-align:center;
+        background-color:darkslategrey;
+        color:red;
+        padding:10px;
+        
+    }
+    .wel{
+        color:red;
+    }
+</style>
+
+<h2 class="wel">Welcome&#128512;</h2>
+<p></p>
+<center><h4 class="head">RESTAURANT APP</h4></center>
+
+<fieldset>
+    <legend class="lenged">Restaurant</legend>
+    <div class="container1">
+        <div class="cls">
+      
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="form-group" style="width:300px">
+
+                            Customer:
+                            @Html.DropDownList("Customer", new SelectList(Model.Item1, "Value", "Text"),
+                           new { @class = "form-control" })
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group" style="width:300px">
+                            Payment Type:
+                            @Html.DropDownList("PaymentType", new SelectList(Model.Item3, "Value", "Text"),
+                           new { @class = "form-control" })
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group" style="width:300px">
+                            Total:
+                            <input style="text-align:right" type="text" value="0.00" name="FinalTotal" readonly="readonly" id="txtFinalTotal" class="form-control" />
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+  
+</fieldset>
+
+<fieldset>
+    <legend class="lenged">
+        Restaurant Items
+    </legend>
+
+    <div  class="container1">
+        <div class="cls">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-group" style="width:300px">
+                        Item:
+                        @Html.DropDownList("Item", new SelectList(Model.Item2, "Value", "Text"),
+                          new { @class = "form-control" })
+
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="form-group" style="width:300px">
+
+                        Unit Price:
+                        <input style="text-align:right" type="text" readonly="readonly" id="txtUnitPrice" value="0.00" name="UnitPrice" class="form-control" />
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group" style="width:300px">
+                        Quantity:
+                        <input style="text-align:right" type="text" id="txtQuantity" value="0.00" name="Quantity" class="form-control" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-group" style="width:300px">
+                        Discount:
+                        <input style="text-align:right" type="text" id="txtDiscount" value="0.00" name="Discount" class="form-control" />
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        Total:
+                        <input style="text-align:right" type="text" readonly="readonly" id="txtTotal" Value="0.00" name="Total" class="form-control" />
+
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="form-group" style="width:300px">
+                        <input type="button"  style="margin-top:5px" value="Add To List" name="AddToList" id="btnAddToList" class="btn btn-success" />
+                    </div>
+                </div>
+            </div>
+        </div>
+        </div>
+</fieldset>
+
+<fieldset>
+    <legend class="lenged">
+        Restaurant Listed Items
+    </legend>
+    <table style="width:100%" id="tblRestaurantItemList">
+        <thead>
+            <tr>
+                <th hidden>
+                    Item Id
+                </th>
+                <th>
+                    Item Name
+                </th>
+                <th>
+                    Unit Price
+                </th>
+                <th>
+                    Quantity
+                </th>
+                <th>
+                    Discount
+                </th>
+                <th>
+                    Total
+                </th>
+                <th>
+                    Action
+                </th>
+            </tr>
+        </thead>
+    </table>
+</fieldset>
+
+<div class="mt-3" style="float:right;   margin-top: 10px">
+    <input data-backdrop="static" data-keydrop="false" data-toggle="modal" data-target="#divPayment" type="button" value="Checkout" name="chechout" id="btnCheckout" class="btn btn-primary" />
+
+    <input type="button" value="Reset" name="Reset" id="btnReset"
+           class="btn btn-danger" />
+</div>
+
+<div id="divPayment" class="modal fade" role="dialog">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <h4 class="modal-title">Payment</h4>
+            </div>
+            <div class="modal-body">
+                <div class="container">
+                    <div class="row">
+                        <div class="form-group col-md-6">
+                            Payment Total:
+                            <input type="text" id="txtPaymentTotal" value="0.00" class="form-control" />
+                        </div>
+                        <div class="form-group col-md-6">
+                            Payment Amount:
+                            <input type="text" id="txtPaymentAmount" value="0.00" class="form-control" />
+                        </div>
+                    </div>
+
+
+                    <div class="row">
+                        <div class="form-group col-md-6">
+                            Return Total:
+                            <input style="text-align:right" type="text" id="txtReturnTotal" value="0.00" class="form-control" />
+                        </div>
+                        <div class="form-group col-md-6">
+                            Balance Amount:
+                            <input type="text" readonly="readonly" id="txtBalance" value="0.00" class="form-control" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-success" id="btnPayment" value="Payment">Payment</button>
+                <button class="btn btn-danger" id="btnClose" data-dismiss="modal" value="close">Close</button>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+
+@*<script src="~/Scripts/jquery-3.0.0.min.js"></script>
+    <script type="text/javascript">
+        $(document).ready(function () {
+            loadItem();
+            $("#txtQuantity").val('1.00');
+            $("#btnPayment").prop('disabled', true);
+            $("#btnCheckOut").prop('disabled', true);
+            $("#txtFinalTotal").val(parseFloat(0.00).toFixed(2));
+            $("#Item").change(function () {
+                loadItem();
+            });
+
+            $("input[type=text]").change(function () {
+                CalculateSubTotal();
+            });
+
+            $("input[type=text]").keyup(function () {
+                CalculateBalance();
+            });
+
+            $("#btnAddToList").click(function () {
+                AddToTheItemList();
+                FinalItemTotal();
+            });
+
+            $("#btnPayment").click(function () {
+                FinalPayment();
+            });
+
+            $("#btnReset").click(function () { ResetItems(); ResetItemsDetails(); });
+        });
+
+        function FinalPayment() {
+            var objOrderViewModel = {};
+            var ListOrderDetailViewModel = new Array();
+            objOrderViewModel.PaymentTypeId = $("#PaymentType").val();
+            objOrderViewModel.CustomerId = $("#Customer").val();
+            objOrderViewModel.FinalTotal = $("#txtFinalTotal").val();
+            $("#tblRestaurantItemList").find("tr:gt(0)").each(function () {
+                var objOrderDetailViewModel = {};
+                objOrderDetailViewModel.ItemId = $(this).find("td:eq(0)").text();
+                objOrderDetailViewModel.Quantity = $(this).find("td:eq(3)").text();
+                objOrderDetailViewModel.Total = $(this).find("td:eq(5)").text();
+                objOrderDetailViewModel.Discount = $(this).find("td:eq(4)").text();
+                objOrderDetailViewModel.UnitPrice = $(this).find("td:eq(2)").text();
+                ListOrderDetailViewModel.push(objOrderDetailViewModel);
+            });
+            objOrderViewModel.listOrderDetailViewModel = ListOrderDetailViewModel;
+
+            $.ajax({
+                async: true,
+                type: 'POST',
+                dataType: 'JSON',
+                contentType: 'application/json; charset=utf-8',
+                data: JSON.stringify(objOrderViewModel),
+                url: '/home/Index',
+                success: function (data) { alert(data) },
+                error: function () { alert('There is some problem to get the unit price.') }
+            });
+
+            ResetItems();
+            ResetItemsDetails();
+        }
+
+        function ResetItemsDetails() {
+            $('#divPayment').modal('hide');
+            $("#tblRestaurantItemList").find("tr:gt(0)").each(function () {
+                $(this).remove();
+            });
+
+            $("#txtFinalTotal").val(parseFloat(0.00).toFixed(2));
+            $("#txtPaymentTotal").val(parseFloat(0.00).toFixed(2));
+            $("#txtBalance").val(parseFloat(0.00).toFixed(2));
+            $("#PaymentType").val(0); $("#Customer").val(0);
+
+        }
+
+
+        function AddToTheItemList() {
+            var totalItemList = $("#tblRestaurantItemList");
+            var UnitPrice = $("#txtUnitPrice").val();
+            var Quantity = $("#txtQuantity").val();
+            var Discount = $("#txtDiscount").val();
+            var ItemId = $("#Item").val();
+            var ItemName = $("#Item option:selected").text();
+            var Total = (UnitPrice * Quantity) - Discount;
+
+
+            var ItemList = "<tr><td hidden> " + ItemId + "</td><td>"
+                + ItemName + "</td><td>" +
+                parseFloat(UnitPrice).toFixed(2) + "</td><td>" +
+                parseFloat(Quantity).toFixed(2) + "</td><td>" +
+                parseFloat(Discount).toFixed(2) + "</td><td>"
+                + parseFloat(Total).toFixed(2) + "</td> <td> <input type='button' value='Remove' name='remove' class='btn btn-danger' onclick='RemoveItem(this)'/>" + "</td></tr>";
+
+            totalItemList.append(ItemList);
+            ResetItems();
+            EnableDisableCheckOut();
+        }
+
+        function EnableDisableCheckOut() {
+            $("#btnCheckOut").prop('disabled', true);
+            if ($('#tblRestaurantItemList tr').length > 1)
+                $("#btnCheckOut").prop('disabled', false);
+        }
+
+
+        function ResetItems() {
+            $("#txtQuantity").val('1.00');
+            $("#txtDiscount").val('0.00');
+            $("#Item").val(1);
+            $("#txtTotal").val('0.00');
+            $("#btnPayment").prop('disabled', true);
+            $("#btnCheckOut").prop('disabled', true);
+        }
+
+        function RemoveItem(itemId) {
+            $(itemId).closest('tr').remove();
+            EnableDisableCheckOut();
+        }
+
+        function FinalItemTotal() {
+            $("#txtFinalTotal").val("0.00");
+            var FinalTotal = 0.00;
+            $("#tblRestaurantItemList").find("tr:gt(0)").each(function () {
+                var Total = $(this).find("td:eq(5)").text();
+                FinalTotal += parseFloat(Total);
+            });
+
+            $("#txtFinalTotal").val(parseFloat(FinalTotal).toFixed(2));
+
+            $("#txtPaymentTotal").val(parseFloat(FinalTotal).toFixed(2));
+            $("#txtBalance").val(parseFloat(FinalTotal).toFixed(2));
+
+        }
+
+
+        function loadItem() {
+            var itemId = $("#Item").val();
+            GetItemUnitPrice(itemId);
+        }
+
+        function GetItemUnitPrice(itemId) {
+            $.ajax({
+                async: true,
+                type: 'GET',
+                dataType: 'JSON',
+                contentType: 'application/json; charset=utf-8',
+                data: { itemId: itemId },
+                url: '/home/getItemUnitPrice',
+                success: function (data) { $("#txtUnitPrice").val(data).toFixed(2) },
+                error: function () { alert('There is some problem to get the unit price.') }
+            });
+        }
+
+        function CalculateSubTotal() {
+            var UnitPrice = $("#txtUnitPrice").val();
+            var Quantity = $("#txtQuantity").val();
+            var Discount = $("#txtDiscount").val();
+
+            var Total = (UnitPrice * Quantity) - Discount;
+
+            $("#txtTotal").val(parseFloat(Total).toFixed(2));
+
+        }
+
+        function CalculateBalance() {
+            var FinalAmount = $("#txtPaymentTotal").val();
+            var PaymentAmount = $("#txtPaymentAmount").val();
+            var ReturnAmount = $("#txtReturnTotal").val();
+            var BalanceAmount = parseFloat(FinalAmount) + parseFloat(ReturnAmount)
+                - parseFloat(PaymentAmount);
+
+            $("#txtBalance").val(parseFloat(BalanceAmount));
+
+            if (BalanceAmount != 0.00) {
+                $("#btnPayment").prop('disabled', true);
+            }
+            else {
+                $("#btnPayment").prop('disabled', false);
+            }
+        }
+    </script>
+
+    <style>
+
+        .row{
+            display:flex;
+            justify-content:space-evenly;
+        }
+        .modal {
+            text-align: center;
+            padding: 0 !important;
+        }
+
+            .modal:before {
+                content: '';
+                display: inline-block;
+                height: 100%;
+                vertical-align: middle;
+                margin-right: -4px;
+            }
+
+        .modal-dialog {
+            display: inline-block;
+            text-align: left;
+            vertical-align: middle;
+        }
+
+        fieldset {
+            border: 1px solid #ddd !important;
+            margin: 0;
+            xmin-width: 0;
+            padding: 10px;
+            position: relative;
+            border-radius: 4px;
+            background-color: #f5f5f5;
+            padding-left: 10px !important;
+        }
+
+        legand {
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 0px;
+            width: 35%;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            padding: 5px 5px 5px 10px;
+            background-color: #ffffff;
+        }
+    </style>
+
+    <fieldset>
+        <legend>Restaurant</legend>
+        <div class="container">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        Customer:
+                        @Html.DropDownList("Customer", new SelectList(Model.Item1, "Value", "Text"),
+                       new { @class = "form-control" })
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        Payment Type:
+                        @Html.DropDownList("PaymentType", new SelectList(Model.Item3, "Value", "Text"),
+                       new { @class = "form-control" })
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="form-group">
+                        Total:
+
+                        <input style="text-align:right; font-weight:bold" name="FinalTotal" type="text" readonly="readonly" id="txtFinalTotal"
+                               class="form-control" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>
+            Restaurant Items:
+        </legend>
+        <div class="container">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        Item :
+                        @Html.DropDownList("Item", new SelectList(Model.Item2, "Value", "Text"),
+                      new { @class = "form-control" })
+                    </div>
+                </div>
+
+
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            Unit Price :
+                            <input style="text-align:right" type="text" readonly="readonly" id="txtUnitPrice"
+                                   value="0.00" name="UnitPrice" class="form-control" />
+                        </div>
+                    </div>
+                </div>
+
+                    <div class="row">
+
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                Quantity:
+                                <input style="text-align:right" type="text" id="txtQuantity"
+                                       value="0.00" name="Quantity" class="form-control" />
+                            </div>
+                        </div>
+
+
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            Discount:
+                            <input style="text-align:right" type="text" id="txtDiscount"
+                                   value="0.00" name="Discount" class="form-control" />
+                        </div>
+                    </div>
+                </div>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                Total:
+                                <input style="text-align:right" type="text" id="txtTotal"
+                                       value="0.00" name="Total" class="form-control" />
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <input type="button" id="btnAddToList" style="margin-top:20px;"
+                                       value="Add To List" name="AddToList" class="btn btn-success" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+    </fieldset>
+
+    <fieldset>
+        <legend>Restaurant Listed items</legend>
+        <table style="width:100%" id="tblRestaurantItemList">
+            <thead>
+                <tr>
+                    <th hidden>
+                        Item Id
+                    </th>
+                    <th>
+                        Item Name
+                    </th>
+                    <th>
+                        Unit Price
+                    </th>
+                    <th>
+                        Quantity
+                    </th>
+                    <th>
+                        Discount
+                    </th>
+                    <th>
+                        Total
+                    </th>
+                    <th>
+                        Action
+                    </th>
+                </tr>
+            </thead>
+        </table>
+    </fieldset>
+
+    <div class="mt-3" style="float:right">
+        <input data-backdrop="static" data-keydrop="false" data-toggle="modal" data-target="#divPayment" type="button" value="Check Out" name="CheckOut" id="btnCheckOut"
+               class="btn btn-primary" />
+
+
+        <input type="button" value="Reset" name="Reset" id="btnReset"
+               class="btn btn-danger" />
+    </div>
+
+    <div id="divPayment" class="modal fade">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title">Payment</h4>
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+
+                </div>
+
+
+                <div class="modal-body">
+                    <div class="container">
+                        <div class="row">
+                            <div class="form-group col-md-6">
+                                Payment Total:
+                                <input style="text-align:right" type="text" id="txtPaymentTotal" readonly="readonly" value="0.00" class="form-control" />
+                            </div>
+                            <div class="form-group col-md-6">
+                                Payment Amount:
+                                <input style="text-align:right" type="text" id="txtPaymentAmount" value="0.00" class="form-control" />
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="form-group col-md-6">
+                                Return Total:
+                                <input style="text-align:right" type="text" id="txtReturnTotal" value="0.00" class="form-control" />
+                            </div>
+                            <div class="form-group col-md-6">
+                                Balance Amount:
+                                <input style="text-align:right" type="text" id="txtBalance" readonly="readonly" value="0.00" class="form-control" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="btnPayment" class="btn btn-success" value="Payment">Payment</button>
+                    <button id="btnClose" data-dismiss="modal" class="btn btn-danger" value="Close">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>*@
+
+
